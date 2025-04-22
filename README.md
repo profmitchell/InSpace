@@ -1,6 +1,3 @@
-# InSpace Gizmo Controller
-
-
 
 <img width="400" alt="Screenshot 2025-04-22 at 12 22 32 AM" src="https://github.com/user-attachments/assets/1e5904e1-7da4-4019-9aa9-5c1451bea3a5" />
 
@@ -11,7 +8,6 @@
 <img width="400" alt="Screenshot 2025-04-22 at 12 24 51 AM" src="https://github.com/user-attachments/assets/191e980c-6e75-4c53-9845-0d0428f545df" />
 
 
-# InSpace
 # InSpace
 
 > A customizable 3D gizmo control React component for transform and rotate interactions along the X, Y, and Z axes.
