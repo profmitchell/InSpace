@@ -542,7 +542,7 @@ export const InSpace: React.FC<GizmoControllerProps> = ({ mode, onToggleMode, in
                     />
 
                     {/* Axis
-                      strokeOpacity="0.5" 
+                      strokeOpacity="0.5"
                     />
 
                     {/* Axis labels */}
@@ -860,21 +860,22 @@ export const InSpace: React.FC<GizmoControllerProps> = ({ mode, onToggleMode, in
 
           <button
             onClick={handleToggle}
-            className="flex items-center justify-center w-10 h-10 bg-white/20 hover:bg-white/30 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
+            className="flex items-center justify-center w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
             tabIndex={0}
             aria-label={`Switch to ${currentMode === "transform" ? "rotate" : "transform"} mode`}
           >
             {currentMode === "transform" ? (
+              // Rotation icon when in transform mode
               <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path
-                  d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 2 12C2 2 17.5228 22 22 12C22 6.47715 17.5228 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+                  d="M14 15L9 20L4 15"
                   stroke="currentColor"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
                 <path
-                  d="M12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C8 8 16 14.2091 14.2091 16 16 12C16 9.79086 14.2091 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16Z"
+                  d="M20 4H13C10.7909 4 9 5.79086 9 8V20"
                   stroke="currentColor"
                   strokeWidth="2"
                   strokeLinecap="round"
@@ -882,21 +883,38 @@ export const InSpace: React.FC<GizmoControllerProps> = ({ mode, onToggleMode, in
                 />
               </svg>
             ) : (
+              // Transform/move icon when in rotate mode
               <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path
-                  d="M3 17L9 11L13 15L21 7"
+                  d="M5 9L2 12L5 15"
                   stroke="currentColor"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
                 <path
-                  d="M17 7H21V11"
+                  d="M9 5L12 2L15 5"
                   stroke="currentColor"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
+                <path
+                  d="M15 19L12 22L9 19"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M19 9L22 12L19 15"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path d="M2 12H22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M12 2V22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             )}
           </button>

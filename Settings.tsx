@@ -22,10 +22,11 @@ interface SettingsProps {
 export const Settings: React.FC<SettingsProps> = ({ settings, updateSettings, onClose }) => {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 10 }}
-      className="absolute top-full left-0 right-0 mt-2 p-4 bg-gray-800/90 backdrop-blur-md rounded-lg shadow-lg z-10"
+      initial={{ opacity: 0, x: 10 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 10 }}
+      className="absolute top-0 left-full ml-4 p-4 bg-gray-800/90 backdrop-blur-md rounded-lg shadow-lg z-10 w-64"
+      style={{ maxHeight: "100%", overflowY: "auto" }}
     >
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-white font-medium">Settings</h3>
