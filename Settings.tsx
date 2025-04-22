@@ -9,6 +9,7 @@ interface GizmoSettings {
   lockAxis: boolean
   useColors: boolean
   handleSize: number
+  lineSize: number
   showLabels: boolean
 }
 
@@ -76,6 +77,23 @@ export const Settings: React.FC<SettingsProps> = ({ settings, updateSettings, on
           />
         </div>
 
+        {/* Line Size Slider */}
+        <div>
+          <label htmlFor="line-size-slider" className="block text-sm text-white/70 mb-1">
+            Line Size: {settings.lineSize}px
+          </label>
+          <input
+            id="line-size-slider"
+            type="range"
+            min="1"
+            max="5"
+            step="0.5"
+            value={settings.lineSize}
+            onChange={(e) => updateSettings({ lineSize: Number.parseFloat(e.target.value) })}
+            className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer"
+          />
+        </div>
+
         {/* Toggle Switches */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -126,6 +144,9 @@ export const Settings: React.FC<SettingsProps> = ({ settings, updateSettings, on
                 }`}
               ></div>
             </div>
+          </div>
+          <div className="text-xs text-white/50 mt-1 mb-2">
+            Tip: Hold Shift to temporarily lock to axis while dragging
           </div>
 
           <div className="flex items-center justify-between">
