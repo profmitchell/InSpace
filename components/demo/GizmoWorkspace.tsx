@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GizmoController, type GizmoSettings } from "../gizmo/GizmoController"
 import { CompactSettings } from "../gizmo/CompactSettings"
 import { DemoObject } from "./DemoObject"
+import ThreeDObject from "./ThreeDObject"
 import { HoverBorderGradient } from "../ui/hover-border-gradient"
 
 // Add the Inter font import at the top
@@ -37,6 +38,7 @@ export const GizmoWorkspace: React.FC = () => {
 
   // Demo objects
   const [activeDemo, setActiveDemo] = useState<"cube" | "pyramid" | "sphere">("cube")
+  const [use3DMeshes, setUse3DMeshes] = useState(true)
 
   const updateSettings = (newSettings: Partial<GizmoSettings>) => {
     setSettings((prev) => ({
@@ -45,19 +47,39 @@ export const GizmoWorkspace: React.FC = () => {
     }))
   }
 
+  // Add a reset function
+  const resetObject = () => {
+    setPosition({ x: 0, y: 0, z: 0 })
+    setRotation({ x: 0, y: 0, z: 0 })
+  }
+
   return (
     <div className="flex flex-col h-screen bg-black text-white">
       {/* Header */}
       <header className="border-b border-white/10 p-4 flex justify-between items-center">
         <h1 className="text-xl font-bold">InSpace Gizmo Controller</h1>
-        <a
-          href="https://cohen-concepts.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`${inter.className} text-sm text-white/50 hover:text-white/80 transition-colors`}
-        >
-          By: Cohen-Concepts.com
-        </a>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label htmlFor="use-3d-meshes" className="text-sm text-white/70">
+              Use 3D Meshes
+            </label>
+            <input
+              type="checkbox"
+              id="use-3d-meshes"
+              checked={use3DMeshes}
+              onChange={(e) => setUse3DMeshes(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+          </div>
+          <a
+            href="https://cohen-concepts.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`${inter.className} text-sm text-white/50 hover:text-white/80 transition-colors`}
+          >
+            By: Cohen-Concepts.com
+          </a>
+        </div>
       </header>
 
       {/* Main content */}
@@ -132,13 +154,23 @@ export const GizmoWorkspace: React.FC = () => {
 
         {/* Center panel - Canvas */}
         <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-black to-gray-900">
-          <div className={`${viewMode === "3d" ? "perspective-500" : ""} w-96 h-96 flex items-center justify-center`}>
-            <DemoObject
-              position={position}
-              rotation={viewMode === "3d" ? rotation : { ...rotation, x: 0, y: 0 }}
-              type={activeDemo}
-              size={128}
-            />
+          <div className="w-96 h-96 flex items-center justify-center">
+            {use3DMeshes ? (
+              <div className="w-full h-full">
+                <ThreeDObject position={position} rotation={rotation} type={activeDemo} size={64} viewMode={viewMode} />
+              </div>
+            ) : (
+              <div
+                className={`${viewMode === "3d" ? "perspective-500" : ""} w-full h-full flex items-center justify-center`}
+              >
+                <DemoObject
+                  position={position}
+                  rotation={viewMode === "3d" ? rotation : { ...rotation, x: 0, y: 0 }}
+                  type={activeDemo}
+                  size={128}
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -150,6 +182,7 @@ export const GizmoWorkspace: React.FC = () => {
             <HoverBorderGradient animateGradient={true} className="p-4">
               <GizmoController
                 mode={mode}
+                viewMode={viewMode}
                 onModeChange={setMode}
                 settings={settings}
                 onPositionChange={setPosition}
@@ -163,7 +196,7 @@ export const GizmoWorkspace: React.FC = () => {
 
           <div className="bg-black/40 rounded-lg p-4">
             <h3 className="text-sm font-medium mb-4 text-white/70">Gizmo Settings</h3>
-            <CompactSettings settings={settings} updateSettings={updateSettings} />
+            <CompactSettings settings={settings} updateSettings={updateSettings} onReset={resetObject} />
           </div>
         </div>
       </div>

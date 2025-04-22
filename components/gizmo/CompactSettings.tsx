@@ -9,11 +9,21 @@ import type { GizmoSettings } from "./GizmoController"
 interface CompactSettingsProps {
   settings: GizmoSettings
   updateSettings: (settings: Partial<GizmoSettings>) => void
+  onReset?: () => void
 }
 
-export const CompactSettings: React.FC<CompactSettingsProps> = ({ settings, updateSettings }) => {
+export const CompactSettings: React.FC<CompactSettingsProps> = ({ settings, updateSettings, onReset }) => {
   return (
     <div className="space-y-4">
+      {onReset && (
+        <button
+          onClick={onReset}
+          className="w-full py-2 px-4 bg-white/10 hover:bg-white/20 rounded-md text-white text-sm font-medium transition-colors"
+        >
+          Reset Object Position & Rotation
+        </button>
+      )}
+
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <Label htmlFor="handle-size" className="text-sm text-white/70">

@@ -7,6 +7,7 @@ import { motion, AnimatePresence, useMotionValue } from "framer-motion"
 type GizmoMode = "transform" | "rotate"
 type RotationAxis = "x" | "y" | "z" | null
 type Axis = "x" | "y" | "z"
+type ViewMode = "2d" | "3d"
 
 export interface GizmoSettings {
   size: number
@@ -21,6 +22,7 @@ export interface GizmoSettings {
 
 export interface GizmoControllerProps {
   mode: GizmoMode
+  viewMode?: ViewMode
   onModeChange?: (mode: GizmoMode) => void
   settings: GizmoSettings
   onPositionChange?: (position: { x: number; y: number; z: number }) => void
@@ -29,6 +31,7 @@ export interface GizmoControllerProps {
 
 export const GizmoController: React.FC<GizmoControllerProps> = ({
   mode,
+  viewMode = "3d",
   onModeChange,
   settings,
   onPositionChange,
@@ -48,13 +51,14 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
   const [cumulativeRotation, setCumulativeRotation] = useState({ x: 0, y: 0, z: 0 })
   const [lastAngle, setLastAngle] = useState({ x: 0, y: 0, z: 0 })
 
-  // Helper function to check if the cursor is near the Z axis
+  // Update the isNearZAxis function to make it more forgiving
   const isNearZAxis = (x: number, y: number) => {
-    // Check if the cursor is in a cone around the Z axis
+    // Check if the cursor is in a wider cone around the Z axis
     const zAxisAngle = Math.atan2(-1, 1) // -45 degrees for Z axis
     const cursorAngle = Math.atan2(-y, x)
     const angleDiff = Math.abs(cursorAngle - zAxisAngle)
-    return angleDiff < Math.PI / 6 || angleDiff > (Math.PI * 11) / 6 // Within 30 degrees of Z axis
+    // Increase the angle threshold from PI/6 to PI/4 (from 30 to 45 degrees)
+    return angleDiff < Math.PI / 4 || angleDiff > (Math.PI * 7) / 4
   }
 
   // Motion values for the handle
@@ -107,10 +111,11 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
       const distToXAxis = Math.abs(relY)
       const distToYAxis = Math.abs(relX)
       // Make Z axis easier to select by reducing its calculated distance by 30%
-      const distToZAxis = Math.abs(relX * 0.707 - relY * 0.707) * 0.7 // Reduced by 30% to make Z axis easier to select
+      const distToZAxis = Math.abs(relX * 0.707 - relY * 0.707) * 0.5 // Reduced by 50% to make Z axis easier to select
 
-      // Find the closest axis
-      const minDist = Math.min(distToXAxis, distToYAxis, distToZAxis)
+      // In 2D mode, only consider X and Y axes
+      const minDist =
+        viewMode === "2d" ? Math.min(distToXAxis, distToYAxis) : Math.min(distToXAxis, distToYAxis, distToZAxis)
 
       // If axis locking is enabled and we're already dragging, keep the current axis
       if (settings.lockAxis && isDragging && activeAxis) {
@@ -139,7 +144,7 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
           const maxDist = settings.allowDragBeyondBounds ? 1000 : 60
           const clampedY = Math.max(-maxDist, Math.min(maxDist, relY))
           // REVERSED: Now negative Y means down, positive Y means up
-          const normalizedProgress = clampedY / 60 // Removed the negative sign to reverse direction
+          const normalizedProgress = -clampedY / 60 // Added negative sign to reverse direction
 
           // Update box position
           setBoxPosition((prev) => ({ ...prev, y: normalizedProgress * 50 }))
@@ -155,12 +160,13 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
             progress: normalizedProgress,
             axis: "y",
           }
-        } else {
-          // Z axis
+        } else if (viewMode === "3d") {
+          // Z axis - only in 3D mode
           const maxDist = settings.allowDragBeyondBounds ? 1000 : 60
           const projectionLength = (relX * 0.707 - relY * 0.707) * 0.707 // Corrected for 45-degree Z axis
           const clampedProj = Math.max(-maxDist, Math.min(maxDist, projectionLength))
-          const normalizedProgress = clampedProj / 60
+          // REVERSED: Now negative Z means away, positive Z means towards
+          const normalizedProgress = -clampedProj / 60 // Added negative sign to reverse direction
 
           // Update box position
           setBoxPosition((prev) => ({ ...prev, z: normalizedProgress * 50 }))
@@ -209,7 +215,7 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
         const maxDist = settings.allowDragBeyondBounds ? 1000 : 60
         const clampedY = Math.max(-maxDist, Math.min(maxDist, relY))
         // REVERSED: Now negative Y means down, positive Y means up
-        const normalizedProgress = clampedY / 60 // Removed the negative sign to reverse direction
+        const normalizedProgress = -clampedY / 60 // Added negative sign to reverse direction
 
         setActiveAxis("y")
 
@@ -227,15 +233,15 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
           progress: normalizedProgress,
           axis: "y",
         }
-      } else {
-        // Closest to Z axis
+      } else if (viewMode === "3d") {
+        // Closest to Z axis - only in 3D mode
         // Calculate projection onto Z axis (which is at 45 degrees)
         const maxDist = settings.allowDragBeyondBounds ? 1000 : 60
         const projectionLength = (relX * 0.707 - relY * 0.707) * 0.707 // Corrected for 45-degree Z axis
         // Clamp projection between -60 and 60 (or allow beyond if setting is enabled)
         const clampedProj = Math.max(-maxDist, Math.min(maxDist, projectionLength))
-        // Calculate progress from -1 to 1 (centered at 0)
-        const normalizedProgress = clampedProj / 60
+        // REVERSED: Now negative Z means away, positive Z means towards
+        const normalizedProgress = -clampedProj / 60 // Added negative sign to reverse direction
 
         setActiveAxis("z")
 
@@ -253,6 +259,9 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
           progress: normalizedProgress,
           axis: "z",
         }
+      } else {
+        // Default to X axis if nothing else matches (should not happen)
+        return { x: 0, y: 0, progress: 0, axis: "x" }
       }
     } else {
       // For rotate mode, determine which axis to rotate around based on drag direction
@@ -261,24 +270,29 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
 
       // If we're just starting to drag, determine which axis to rotate around
       if (distance > 10 && activeRotationAxis === null) {
-        // Determine which axis based on drag direction in a Y-shape pattern
-        const angle = Math.atan2(relY, relX) * (180 / Math.PI)
-
-        // Y axis (green) - 10 o'clock direction (-120° to -60°)
-        if (angle > -120 && angle < -60) {
-          setActiveRotationAxis("y")
-        }
-        // X axis (red) - 2 o'clock direction (-30° to 30°)
-        else if ((angle > -30 && angle < 30) || angle > 150 || angle < -150) {
-          setActiveRotationAxis("x")
-        }
-        // Z axis (blue) - 6 o'clock direction (60° to 120°)
-        else if (angle > 60 && angle < 120) {
+        if (viewMode === "2d") {
+          // In 2D mode, only allow rotation around Z axis
           setActiveRotationAxis("z")
-        }
-        // Default to X if not in any specific zone
-        else {
-          setActiveRotationAxis("x")
+        } else {
+          // In 3D mode, determine axis based on drag direction
+          const angle = Math.atan2(relY, relX) * (180 / Math.PI)
+
+          // Y axis (green) - 10 o'clock direction (-120° to -60°)
+          if (angle > -120 && angle < -60) {
+            setActiveRotationAxis("y")
+          }
+          // X axis (red) - 2 o'clock direction (-30° to 30°)
+          else if ((angle > -30 && angle < 30) || angle > 150 || angle < -150) {
+            setActiveRotationAxis("x")
+          }
+          // Z axis (blue) - 6 o'clock direction (60° to 120°)
+          else if (angle > 60 && angle < 120) {
+            setActiveRotationAxis("z")
+          }
+          // Default to X if not in any specific zone
+          else {
+            setActiveRotationAxis("x")
+          }
         }
       }
 
@@ -301,8 +315,8 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
       let posY = 0
 
       // Different calculation based on which axis we're rotating around
-      if (activeRotationAxis === "x") {
-        // Rotation around X axis - YZ plane (red)
+      if (activeRotationAxis === "x" && viewMode === "3d") {
+        // Rotation around X axis - YZ plane (red) - only in 3D mode
         posX = Math.cos(angle) * radius
         posY = Math.sin(angle) * radius
 
@@ -337,8 +351,8 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
           // Standard behavior - reset at 360
           setBoxRotation((prev) => ({ ...prev, x: degrees }))
         }
-      } else if (activeRotationAxis === "y") {
-        // Rotation around Y axis - XZ plane (green)
+      } else if (activeRotationAxis === "y" && viewMode === "3d") {
+        // Rotation around Y axis - XZ plane (green) - only in 3D mode
         posX = Math.cos(angle) * radius
         posY = Math.sin(angle) * radius
 
@@ -374,7 +388,7 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
           setBoxRotation((prev) => ({ ...prev, y: degrees }))
         }
       } else if (activeRotationAxis === "z") {
-        // Rotation around Z axis - XY plane (blue)
+        // Rotation around Z axis - XY plane (blue) - works in both 2D and 3D
         posX = Math.cos(angle) * radius
         posY = Math.sin(angle) * radius
 
@@ -464,8 +478,9 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
     const relY = localY - centerY
 
     // If in transform mode and the user is trying to drag near the Z axis direction,
-    // give preference to the Z axis
-    if (currentMode === "transform" && !isDragging && isNearZAxis(relX, relY)) {
+    // give preference to the Z axis (only in 3D mode)
+    if (currentMode === "transform" && viewMode === "3d" && isNearZAxis(relX, relY)) {
+      // Always set Z axis as active when near it, even if already dragging
       setActiveAxis("z")
     }
 
@@ -589,39 +604,43 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
                     strokeOpacity="0.5"
                   />
 
-                  {/* Z Axis (Blue) - Extended with isometric angle */}
-                  <line
-                    x1="0"
-                    y1="0"
-                    x2="42"
-                    y2="-42"
-                    stroke={settings.useColors ? "#0074D9" : "#ffffff"}
-                    strokeWidth={activeAxis === "z" ? settings.lineSize + 2 : settings.lineSize + 0.5}
-                    strokeOpacity={activeAxis === "z" ? 1 : 0.8}
-                  />
-                  <polygon
-                    points="42,-42 39,-36 36,-39"
-                    fill={settings.useColors ? "#0074D9" : "#ffffff"}
-                    stroke={settings.useColors ? "#0074D9" : "#ffffff"}
-                    strokeWidth="2"
-                  />
-                  <line
-                    x1="0"
-                    y1="0"
-                    x2="-42"
-                    y2="42"
-                    stroke={settings.useColors ? "#0074D9" : "#ffffff"}
-                    strokeWidth={activeAxis === "z" ? settings.lineSize + 2 : settings.lineSize + 0.5}
-                    strokeOpacity="0.6"
-                  />
+                  {/* Z Axis (Blue) - Extended with isometric angle - Only in 3D mode */}
+                  {viewMode === "3d" && (
+                    <>
+                      <line
+                        x1="0"
+                        y1="0"
+                        x2="42"
+                        y2="-42"
+                        stroke={settings.useColors ? "#0074D9" : "#ffffff"}
+                        strokeWidth={activeAxis === "z" ? settings.lineSize + 3 : settings.lineSize + 1}
+                        strokeOpacity={activeAxis === "z" ? 1 : 0.9}
+                      />
+                      <polygon
+                        points="42,-42 39,-36 36,-39"
+                        fill={settings.useColors ? "#0074D9" : "#ffffff"}
+                        stroke={settings.useColors ? "#0074D9" : "#ffffff"}
+                        strokeWidth="2"
+                      />
+                      <line
+                        x1="0"
+                        y1="0"
+                        x2="-42"
+                        y2="42"
+                        stroke={settings.useColors ? "#0074D9" : "#ffffff"}
+                        strokeWidth={activeAxis === "z" ? settings.lineSize + 3 : settings.lineSize + 1}
+                        strokeOpacity={activeAxis === "z" ? 0.8 : 0.7}
+                      />
 
-                  {/* Add a subtle Z axis helper area - invisible but helps with hit detection */}
-                  <path
-                    d="M0,0 L50,-50 L40,-40 L-40,40 Z"
-                    fill={settings.useColors ? "#0074D9" : "#ffffff"}
-                    opacity="0.05"
-                    pointerEvents="none"
-                  />
+                      {/* Add a subtle Z axis helper area - invisible but helps with hit detection */}
+                      <path
+                        d="M0,0 L60,-60 L45,-45 L-45,45 Z"
+                        fill={settings.useColors ? "#0074D9" : "#ffffff"}
+                        opacity="0.1"
+                        pointerEvents="all"
+                      />
+                    </>
+                  )}
 
                   {/* Axis labels */}
                   {settings.showLabels && (
@@ -648,17 +667,19 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
                       >
                         Y
                       </text>
-                      <text
-                        x="45"
-                        y="-45"
-                        fill={settings.useColors ? "#0074D9" : "#ffffff"}
-                        fontSize="10"
-                        fontWeight="bold"
-                        opacity="0.8"
-                        className="select-none pointer-events-none"
-                      >
-                        Z
-                      </text>
+                      {viewMode === "3d" && (
+                        <text
+                          x="45"
+                          y="-45"
+                          fill={settings.useColors ? "#0074D9" : "#ffffff"}
+                          fontSize="10"
+                          fontWeight="bold"
+                          opacity="0.8"
+                          className="select-none pointer-events-none"
+                        >
+                          Z
+                        </text>
+                      )}
                     </>
                   )}
 
@@ -701,139 +722,149 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
                   <line x1="-60" y1="0" x2="60" y2="0" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
                   <line x1="0" y1="-60" x2="0" y2="60" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
 
-                  {/* 3D Coordinate Axes - Extended */}
-                  <line
-                    x1="0"
-                    y1="0"
-                    x2="70"
-                    y2="0"
-                    stroke={settings.useColors ? "#FF4136" : "#ffffff"}
-                    strokeWidth="1.5"
-                    strokeOpacity="0.7"
-                  />
-                  {settings.showLabels && (
-                    <text
-                      x="72"
-                      y="4"
-                      fill={settings.useColors ? "#FF4136" : "#ffffff"}
-                      fontSize="10"
-                      opacity="0.8"
-                      className="select-none pointer-events-none"
-                    >
-                      X
-                    </text>
+                  {/* 3D Coordinate Axes - Extended - Only in 3D mode */}
+                  {viewMode === "3d" && (
+                    <>
+                      <line
+                        x1="0"
+                        y1="0"
+                        x2="70"
+                        y2="0"
+                        stroke={settings.useColors ? "#FF4136" : "#ffffff"}
+                        strokeWidth="1.5"
+                        strokeOpacity="0.7"
+                      />
+                      {settings.showLabels && (
+                        <text
+                          x="72"
+                          y="4"
+                          fill={settings.useColors ? "#FF4136" : "#ffffff"}
+                          fontSize="10"
+                          opacity="0.8"
+                          className="select-none pointer-events-none"
+                        >
+                          X
+                        </text>
+                      )}
+
+                      <line
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="-70"
+                        stroke={settings.useColors ? "#2ECC40" : "#ffffff"}
+                        strokeWidth="1.5"
+                        strokeOpacity="0.7"
+                      />
+                      {settings.showLabels && (
+                        <text
+                          x="2"
+                          y="-72"
+                          fill={settings.useColors ? "#2ECC40" : "#ffffff"}
+                          fontSize="10"
+                          opacity="0.8"
+                          className="select-none pointer-events-none"
+                        >
+                          Y
+                        </text>
+                      )}
+
+                      <line
+                        x1="0"
+                        y1="0"
+                        x2="-50"
+                        y2="50"
+                        stroke={settings.useColors ? "#0074D9" : "#ffffff"}
+                        strokeWidth="1.5"
+                        strokeOpacity="0.7"
+                      />
+                      {settings.showLabels && (
+                        <text
+                          x="-55"
+                          y="55"
+                          fill={settings.useColors ? "#0074D9" : "#ffffff"}
+                          fontSize="10"
+                          opacity="0.8"
+                          className="select-none pointer-events-none"
+                        >
+                          Z
+                        </text>
+                      )}
+                    </>
                   )}
 
-                  <line
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="-70"
-                    stroke={settings.useColors ? "#2ECC40" : "#ffffff"}
-                    strokeWidth="1.5"
-                    strokeOpacity="0.7"
-                  />
-                  {settings.showLabels && (
-                    <text
-                      x="2"
-                      y="-72"
-                      fill={settings.useColors ? "#2ECC40" : "#ffffff"}
-                      fontSize="10"
-                      opacity="0.8"
-                      className="select-none pointer-events-none"
-                    >
-                      Y
-                    </text>
+                  {/* Y-shaped selection guides - Only in 3D mode */}
+                  {viewMode === "3d" && (
+                    <g opacity="0.2">
+                      {/* X axis guide (2 o'clock) */}
+                      <line
+                        x1="0"
+                        y1="0"
+                        x2="40"
+                        y2="0"
+                        stroke={settings.useColors ? "#FF4136" : "#ffffff"}
+                        strokeWidth="1"
+                        strokeDasharray="2,2"
+                      />
+
+                      {/* Y axis guide (10 o'clock) */}
+                      <line
+                        x1="0"
+                        y1="0"
+                        x2="-35"
+                        y2="-35"
+                        stroke={settings.useColors ? "#2ECC40" : "#ffffff"}
+                        strokeWidth="1"
+                        strokeDasharray="2,2"
+                      />
+
+                      {/* Z axis guide (6 o'clock) */}
+                      <line
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="40"
+                        stroke={settings.useColors ? "#0074D9" : "#ffffff"}
+                        strokeWidth="1"
+                        strokeDasharray="2,2"
+                      />
+                    </g>
                   )}
-
-                  <line
-                    x1="0"
-                    y1="0"
-                    x2="-50"
-                    y2="50"
-                    stroke={settings.useColors ? "#0074D9" : "#ffffff"}
-                    strokeWidth="1.5"
-                    strokeOpacity="0.7"
-                  />
-                  {settings.showLabels && (
-                    <text
-                      x="-55"
-                      y="55"
-                      fill={settings.useColors ? "#0074D9" : "#ffffff"}
-                      fontSize="10"
-                      opacity="0.8"
-                      className="select-none pointer-events-none"
-                    >
-                      Z
-                    </text>
-                  )}
-
-                  {/* Y-shaped selection guides */}
-                  <g opacity="0.2">
-                    {/* X axis guide (2 o'clock) */}
-                    <line
-                      x1="0"
-                      y1="0"
-                      x2="40"
-                      y2="0"
-                      stroke={settings.useColors ? "#FF4136" : "#ffffff"}
-                      strokeWidth="1"
-                      strokeDasharray="2,2"
-                    />
-
-                    {/* Y axis guide (10 o'clock) */}
-                    <line
-                      x1="0"
-                      y1="0"
-                      x2="-35"
-                      y2="-35"
-                      stroke={settings.useColors ? "#2ECC40" : "#ffffff"}
-                      strokeWidth="1"
-                      strokeDasharray="2,2"
-                    />
-
-                    {/* Z axis guide (6 o'clock) */}
-                    <line
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="40"
-                      stroke={settings.useColors ? "#0074D9" : "#ffffff"}
-                      strokeWidth="1"
-                      strokeDasharray="2,2"
-                    />
-                  </g>
 
                   {/* Rotation Rings - Overlapping isometric design */}
-                  {/* X Axis Rotation (Red) */}
-                  <ellipse
-                    cx="0"
-                    cy="0"
-                    rx="60"
-                    ry="30"
-                    fill="none"
-                    stroke={settings.useColors ? "#FF4136" : "#ffffff"}
-                    strokeWidth={activeRotationAxis === "x" ? settings.lineSize + 1 : settings.lineSize}
-                    strokeOpacity={activeRotationAxis === "x" ? 1 : 0.3}
-                    strokeDasharray={activeRotationAxis !== "x" && activeRotationAxis !== null ? "3,3" : ""}
-                    transform="rotate(0)"
-                  />
+                  {/* X Axis Rotation (Red) - Only in 3D mode */}
+                  {viewMode === "3d" && (
+                    <ellipse
+                      cx="0"
+                      cy="0"
+                      rx="60"
+                      ry="30"
+                      fill="none"
+                      stroke={settings.useColors ? "#FF4136" : "#ffffff"}
+                      strokeWidth={activeRotationAxis === "x" ? settings.lineSize + 1 : settings.lineSize}
+                      strokeOpacity={activeRotationAxis === "x" ? 1 : 0.3}
+                      strokeDasharray={activeRotationAxis !== "x" && activeRotationAxis !== null ? "3,3" : ""}
+                      transform="rotate(0)"
+                    />
+                  )}
 
-                  {/* Y Axis Rotation (Green) */}
-                  <ellipse
-                    cx="0"
-                    cy="0"
-                    rx="45"
-                    ry="22.5"
-                    fill="none"
-                    stroke={settings.useColors ? "#2ECC40" : "#ffffff"}
-                    strokeWidth={activeRotationAxis === "y" ? settings.lineSize + 1 : settings.lineSize}
-                    strokeOpacity={activeRotationAxis === "y" ? 1 : 0.3}
-                    strokeDasharray={activeRotationAxis !== "y" && activeRotationAxis !== null ? "3,3" : ""}
-                    transform="rotate(90)"
-                  />
+                  {/* Y Axis Rotation (Green) - Only in 3D mode */}
+                  {viewMode === "3d" && (
+                    <ellipse
+                      cx="0"
+                      cy="0"
+                      rx="45"
+                      ry="22.5"
+                      fill="none"
+                      stroke={settings.useColors ? "#2ECC40" : "#ffffff"}
+                      strokeWidth={activeRotationAxis === "y" ? settings.lineSize + 1 : settings.lineSize}
+                      strokeOpacity={activeRotationAxis === "y" ? 1 : 0.3}
+                      strokeDasharray={activeRotationAxis !== "y" && activeRotationAxis !== null ? "3,3" : ""}
+                      transform="rotate(90)"
+                    />
+                  )}
 
-                  {/* Z Axis Rotation (Blue) */}
+                  {/* Z Axis Rotation (Blue) - Always visible */}
                   <circle
                     cx="0"
                     cy="0"
@@ -846,7 +877,7 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
                   />
 
                   {/* Rotation indicators */}
-                  {activeRotationAxis === "x" && (
+                  {viewMode === "3d" && activeRotationAxis === "x" && (
                     <line
                       x1="0"
                       y1="0"
@@ -857,7 +888,7 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
                       transform={`rotate(${boxRotation.x})`}
                     />
                   )}
-                  {activeRotationAxis === "y" && (
+                  {viewMode === "3d" && activeRotationAxis === "y" && (
                     <line
                       x1="0"
                       y1="0"
@@ -919,7 +950,7 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
                   {formatRotationAngle(activeRotationAxis)}
                 </span>
               ) : (
-                <span>Drag to rotate</span>
+                <span>Drag to rotate{viewMode === "2d" ? " (Z axis only)" : ""}</span>
               )}
             </div>
           ) : (
