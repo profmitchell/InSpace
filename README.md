@@ -3,6 +3,7 @@
 
 <img width="1062" alt="Screenshot 2025-04-22 at 12 07 11 AM" src="https://github.com/user-attachments/assets/413403fe-8ac2-4137-9295-478b9cbbaf6c" />
 # InSpace
+# InSpace
 
 > A customizable 3D gizmo control React component for transform and rotate interactions along the X, Y, and Z axes.
 
@@ -16,6 +17,7 @@
 - [Examples](#examples)
 - [Development](#development)
 - [Project Structure](#project-structure)
+- [Distribution](#distribution)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -123,6 +125,43 @@ inspace/
 ├─ tsconfig.json
 ├─ tailwind.config.js
 └─ README.md           # This file
+```
+
+## Distribution
+
+### Publishing to npm
+1. Ensure your `package.json` includes fields for bundling and types:
+   ```json
+   {
+     "main": "dist/index.cjs.js",
+     "module": "dist/index.esm.js",
+     "types": "dist/index.d.ts"
+   }
+   ```
+2. Build your package:
+   ```bash
+   npm run build
+   ```
+3. Publish to npm (public):
+   ```bash
+   npm publish --access public
+   ```
+
+### Installation via npm
+```bash
+npm install your-package-name
+# or
+yarn add your-package-name
+```
+Import in your code:
+```tsx
+import { InSpace } from 'your-package-name';
+```
+
+### CDN Usage
+Use via UNPKG:
+```html
+<script src="https://unpkg.com/your-package-name/dist/index.umd.js"></script>
 ```
 
 ## Contributing
