@@ -48,6 +48,15 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
   const [cumulativeRotation, setCumulativeRotation] = useState({ x: 0, y: 0, z: 0 })
   const [lastAngle, setLastAngle] = useState({ x: 0, y: 0, z: 0 })
 
+  // Helper function to check if the cursor is near the Z axis
+  const isNearZAxis = (x: number, y: number) => {
+    // Check if the cursor is in a cone around the Z axis
+    const zAxisAngle = Math.atan2(-1, 1) // -45 degrees for Z axis
+    const cursorAngle = Math.atan2(-y, x)
+    const angleDiff = Math.abs(cursorAngle - zAxisAngle)
+    return angleDiff < Math.PI / 6 || angleDiff > (Math.PI * 11) / 6 // Within 30 degrees of Z axis
+  }
+
   // Motion values for the handle
   const x = useMotionValue(0)
   const y = useMotionValue(0)
@@ -97,7 +106,8 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
       // Calculate distances to each axis
       const distToXAxis = Math.abs(relY)
       const distToYAxis = Math.abs(relX)
-      const distToZAxis = Math.abs(relX * 0.707 - relY * 0.707) // Corrected for 45-degree Z axis
+      // Make Z axis easier to select by reducing its calculated distance by 30%
+      const distToZAxis = Math.abs(relX * 0.707 - relY * 0.707) * 0.7 // Reduced by 30% to make Z axis easier to select
 
       // Find the closest axis
       const minDist = Math.min(distToXAxis, distToYAxis, distToZAxis)
@@ -447,6 +457,18 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
     const localX = info.point.x - svgRect.left
     const localY = info.point.y - svgRect.top
 
+    // Calculate center-relative coordinates
+    const centerX = svgRect.width / 2
+    const centerY = svgRect.height / 2
+    const relX = localX - centerX
+    const relY = localY - centerY
+
+    // If in transform mode and the user is trying to drag near the Z axis direction,
+    // give preference to the Z axis
+    if (currentMode === "transform" && !isDragging && isNearZAxis(relX, relY)) {
+      setActiveAxis("z")
+    }
+
     // Calculate closest point on path
     const result = calculateClosestPointOnPath(localX, localY)
 
@@ -574,8 +596,8 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
                     x2="42"
                     y2="-42"
                     stroke={settings.useColors ? "#0074D9" : "#ffffff"}
-                    strokeWidth={activeAxis === "z" ? settings.lineSize + 1 : settings.lineSize}
-                    strokeOpacity={activeAxis === "z" ? 1 : 0.7}
+                    strokeWidth={activeAxis === "z" ? settings.lineSize + 2 : settings.lineSize + 0.5}
+                    strokeOpacity={activeAxis === "z" ? 1 : 0.8}
                   />
                   <polygon
                     points="42,-42 39,-36 36,-39"
@@ -589,8 +611,16 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
                     x2="-42"
                     y2="42"
                     stroke={settings.useColors ? "#0074D9" : "#ffffff"}
-                    strokeWidth={activeAxis === "z" ? settings.lineSize + 1 : settings.lineSize}
-                    strokeOpacity="0.5"
+                    strokeWidth={activeAxis === "z" ? settings.lineSize + 2 : settings.lineSize + 0.5}
+                    strokeOpacity="0.6"
+                  />
+
+                  {/* Add a subtle Z axis helper area - invisible but helps with hit detection */}
+                  <path
+                    d="M0,0 L50,-50 L40,-40 L-40,40 Z"
+                    fill={settings.useColors ? "#0074D9" : "#ffffff"}
+                    opacity="0.05"
+                    pointerEvents="none"
                   />
 
                   {/* Axis labels */}
