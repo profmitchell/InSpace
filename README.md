@@ -1,8 +1,15 @@
 # InSpace Gizmo Controller
 
+
+
 <img width="300" alt="Screenshot 2025-04-22 at 12 22 32 AM" src="https://github.com/user-attachments/assets/1e5904e1-7da4-4019-9aa9-5c1451bea3a5" />
 
 <img width="300" alt="Screenshot 2025-04-22 at 12 07 11 AM" src="https://github.com/user-attachments/assets/413403fe-8ac2-4137-9295-478b9cbbaf6c" />
+
+<img width="300" alt="Screenshot 2025-04-22 at 12 23 15 AM" src="https://github.com/user-attachments/assets/02e99c7c-b098-47ce-894a-8dba79c2c7d7" />
+
+
+
 # InSpace
 # InSpace
 
