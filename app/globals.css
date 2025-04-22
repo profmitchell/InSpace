@@ -63,3 +63,20 @@ input[type="range"]::-moz-range-thumb {
 input[type="range"]::-moz-range-thumb:hover {
   transform: scale(1.1);
 }
+
+@keyframes gradient-border-rotate {
+  0%,
+  100% {
+    --gradient-angle: 0deg;
+  }
+  50% {
+    --gradient-angle: 180deg;
+  }
+  100% {
+    --gradient-angle: 360deg;
+  }
+}
+
+.animate-gradient-border {
+  animation: gradient-border-rotate 4s linear infinite;
+}
