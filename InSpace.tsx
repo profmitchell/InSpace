@@ -1,70 +1,42 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useRef } from "react"
-import { motion, AnimatePresence, useMotionValue } from "framer-motion"
-import { Settings } from "./Settings"
 
-type GizmoMode = "transform" | "rotate"
-type RotationAxis = "x" | "y" | "z" | null
-type Axis = "x" | "y" | "z"
-
-interface GizmoSettings {
-  size: number
-  allowDragBeyondBounds: boolean
-  lockAxis: boolean
-  useColors: boolean
-  handleSize: number
-  showLabels: boolean
-}
-
-interface GizmoControllerProps {
-  mode: GizmoMode
-  onToggleMode?: () => void
-  initialSettings?: Partial<GizmoSettings>
-}
+import { useState, useRef } from "react"
+import { AnimatePresence, motion } from "framer-motion"
+import type { GizmoSettings, GizmoControllerProps } from "./types"
+import { useGizmo } from "./hooks/useGizmo"
+import { TransformGizmo } from "./components/TransformGizmo"
+import { RotateGizmo } from "./components/RotateGizmo"
+import { Settings } from "./components/Settings"
+import { getAxisColor } from "./utils"
 
 const defaultSettings: GizmoSettings = {
-  size: 200,
+  size: 220,
   allowDragBeyondBounds: false,
   lockAxis: true,
   useColors: true,
   handleSize: 10,
+  lineSize: 2,
   showLabels: true,
 }
 
 export const InSpace: React.FC<GizmoControllerProps> = ({ mode, onToggleMode, initialSettings = {} }) => {
-  const [currentMode, setCurrentMode] = useState<GizmoMode>(mode)
-  const [isDragging, setIsDragging] = useState(false)
-  const [pathProgress, setPathProgress] = useState(0)
-  const [activeRotationAxis, setActiveRotationAxis] = useState<RotationAxis>(null)
-  const [activeAxis, setActiveAxis] = useState<Axis>("x")
-  const [showSettings, setShowSettings] = useState(false)
   const [settings, setSettings] = useState<GizmoSettings>({
     ...defaultSettings,
     ...initialSettings,
   })
-
-  // Box position and rotation state
-  const [boxPosition, setBoxPosition] = useState({ x: 0, y: 0, z: 0 })
-  const [boxRotation, setBoxRotation] = useState({ x: 0, y: 0, z: 0 })
-
-  // Motion values for the handle
-  const x = useMotionValue(0)
-  const y = useMotionValue(0)
+  const [showSettings, setShowSettings] = useState(false)
 
   // Reference to the SVG element for coordinate calculations
   const svgRef = useRef<SVGSVGElement>(null)
 
-  useEffect(() => {
-    setCurrentMode(mode)
-  }, [mode])
-
-  const handleToggle = () => {
-    const newMode = currentMode === "transform" ? "rotate" : "transform"
-    setCurrentMode(newMode)
-    onToggleMode?.()
-  }
+  // Use the gizmo hook
+  const { currentMode, state, x, y, handleDragStart, handleDrag, handleDragEnd, toggleMode } = useGizmo(
+    mode,
+    settings,
+    svgRef,
+  )
 
   const handleSettingsToggle = () => {
     setShowSettings(!showSettings)
@@ -77,272 +49,16 @@ export const InSpace: React.FC<GizmoControllerProps> = ({ mode, onToggleMode, in
     }))
   }
 
-  // Calculate the closest point on the path for a given position
-  const calculateClosestPointOnPath = (dragX: number, dragY: number) => {
-    if (!svgRef.current) return { x: 0, y: 0, progress: 0 }
-
-    // Get SVG dimensions
-    const svgRect = svgRef.current.getBoundingClientRect()
-    const centerX = svgRect.width / 2
-    const centerY = svgRect.height / 2
-
-    // Calculate relative position from center
-    const relX = dragX - centerX
-    const relY = dragY - centerY
-
-    if (currentMode === "transform") {
-      // For transform mode, we'll use the closest point on one of the three axes
-      // Calculate distances to each axis
-      const distToXAxis = Math.abs(relY)
-      const distToYAxis = Math.abs(relX)
-      const distToZAxis = Math.abs(relX * 0.707 + relY * 0.707) // Approximate for 45-degree Z axis
-
-      // Find the closest axis
-      const minDist = Math.min(distToXAxis, distToYAxis, distToZAxis)
-
-      // If axis locking is enabled and we're already dragging, keep the current axis
-      if (settings.lockAxis && isDragging && activeAxis) {
-        if (activeAxis === "x") {
-          // Clamp x between -60 and 60 (or allow beyond if setting is enabled)
-          const maxDist = settings.allowDragBeyondBounds ? 1000 : 60
-          const clampedX = Math.max(-maxDist, Math.min(maxDist, relX))
-          const normalizedProgress = clampedX / 60
-
-          // Update box position
-          setBoxPosition((prev) => ({ ...prev, x: normalizedProgress * 50 }))
-
-          return {
-            x: clampedX,
-            y: 0,
-            progress: normalizedProgress,
-            axis: "x",
-          }
-        } else if (activeAxis === "y") {
-          // Clamp y between -60 and 60 (or allow beyond if setting is enabled)
-          const maxDist = settings.allowDragBeyondBounds ? 1000 : 60
-          const clampedY = Math.max(-maxDist, Math.min(maxDist, relY))
-          const normalizedProgress = -clampedY / 60 // Invert Y for natural up/down
-
-          // Update box position
-          setBoxPosition((prev) => ({ ...prev, y: normalizedProgress * 50 }))
-
-          return {
-            x: 0,
-            y: clampedY,
-            progress: normalizedProgress,
-            axis: "y",
-          }
-        } else {
-          // Z axis
-          const maxDist = settings.allowDragBeyondBounds ? 1000 : 60
-          const projectionLength = (relX * -0.707 + relY * 0.707) * 0.707
-          const clampedProj = Math.max(-maxDist, Math.min(maxDist, projectionLength))
-          const normalizedProgress = clampedProj / 60
-
-          // Update box position
-          setBoxPosition((prev) => ({ ...prev, z: normalizedProgress * 50 }))
-
-          return {
-            x: -clampedProj * 0.707,
-            y: clampedProj * 0.707,
-            progress: normalizedProgress,
-            axis: "z",
-          }
-        }
-      }
-
-      if (minDist === distToXAxis) {
-        // Closest to X axis
-        // Clamp x between -60 and 60 (or allow beyond if setting is enabled)
-        const maxDist = settings.allowDragBeyondBounds ? 1000 : 60
-        const clampedX = Math.max(-maxDist, Math.min(maxDist, relX))
-        // Calculate progress from -1 to 1 (centered at 0)
-        const normalizedProgress = clampedX / 60
-
-        setActiveAxis("x")
-
-        // Update box position
-        setBoxPosition((prev) => ({ ...prev, x: normalizedProgress * 50 }))
-
-        return {
-          x: clampedX,
-          y: 0,
-          progress: normalizedProgress,
-          axis: "x",
-        }
-      } else if (minDist === distToYAxis) {
-        // Closest to Y axis
-        // Clamp y between -60 and 60 (or allow beyond if setting is enabled)
-        const maxDist = settings.allowDragBeyondBounds ? 1000 : 60
-        const clampedY = Math.max(-maxDist, Math.min(maxDist, relY))
-        // Calculate progress from -1 to 1 (centered at 0)
-        const normalizedProgress = -clampedY / 60 // Invert Y for natural up/down
-
-        setActiveAxis("y")
-
-        // Update box position
-        setBoxPosition((prev) => ({ ...prev, y: normalizedProgress * 50 }))
-
-        return {
-          x: 0,
-          y: clampedY,
-          progress: normalizedProgress,
-          axis: "y",
-        }
-      } else {
-        // Closest to Z axis
-        // Calculate projection onto Z axis (which is at -45 degrees)
-        const maxDist = settings.allowDragBeyondBounds ? 1000 : 60
-        const projectionLength = (relX * -0.707 + relY * 0.707) * 0.707
-        // Clamp projection between -60 and 60 (or allow beyond if setting is enabled)
-        const clampedProj = Math.max(-maxDist, Math.min(maxDist, projectionLength))
-        // Calculate progress from -1 to 1 (centered at 0)
-        const normalizedProgress = clampedProj / 60
-
-        setActiveAxis("z")
-
-        // Update box position
-        setBoxPosition((prev) => ({ ...prev, z: normalizedProgress * 50 }))
-
-        return {
-          x: -clampedProj * 0.707,
-          y: clampedProj * 0.707,
-          progress: normalizedProgress,
-          axis: "z",
-        }
-      }
-    } else {
-      // For rotate mode, determine which axis to rotate around based on drag direction
-      // Calculate distance from center
-      const distance = Math.sqrt(relX * relX + relY * relY)
-
-      // If we're just starting to drag, determine which axis to rotate around
-      if (distance > 10 && activeRotationAxis === null) {
-        // Determine which axis based on drag direction in a Y-shape pattern
-        const angle = Math.atan2(relY, relX) * (180 / Math.PI)
-
-        // Y axis (green) - 10 o'clock direction (-120° to -60°)
-        if (angle > -120 && angle < -60) {
-          setActiveRotationAxis("y")
-        }
-        // X axis (red) - 2 o'clock direction (-30° to 30°)
-        else if ((angle > -30 && angle < 30) || angle > 150 || angle < -150) {
-          setActiveRotationAxis("x")
-        }
-        // Z axis (blue) - 6 o'clock direction (60° to 120°)
-        else if (angle > 60 && angle < 120) {
-          setActiveRotationAxis("z")
-        }
-        // Default to X if not in any specific zone
-        else {
-          setActiveRotationAxis("x")
-        }
-      }
-
-      // If no axis is selected yet, return center position
-      if (activeRotationAxis === null) {
-        return { x: 0, y: 0, progress: 0, axis: null }
-      }
-
-      // Calculate angle from center
-      const angle = Math.atan2(relY, relX)
-
-      // Calculate rotation angle in degrees (0-360)
-      const degrees = ((angle + Math.PI) / (2 * Math.PI)) * 360
-
-      // Get radius based on active axis
-      const radius = 60
-
-      // Calculate position on the circle
-      let posX = 0
-      let posY = 0
-
-      // Different calculation based on which axis we're rotating around
-      if (activeRotationAxis === "x") {
-        // Rotation around X axis - YZ plane (red)
-        posX = Math.cos(angle) * radius
-        posY = Math.sin(angle) * radius
-
-        // Update box rotation
-        setBoxRotation((prev) => ({ ...prev, x: degrees }))
-      } else if (activeRotationAxis === "y") {
-        // Rotation around Y axis - XZ plane (green)
-        posX = Math.cos(angle) * radius
-        posY = Math.sin(angle) * radius
-
-        // Update box rotation
-        setBoxRotation((prev) => ({ ...prev, y: degrees }))
-      } else if (activeRotationAxis === "z") {
-        // Rotation around Z axis - XY plane (blue)
-        posX = Math.cos(angle) * radius
-        posY = Math.sin(angle) * radius
-
-        // Update box rotation
-        setBoxRotation((prev) => ({ ...prev, z: degrees }))
-      }
-
-      return {
-        x: posX,
-        y: posY,
-        progress: angle / Math.PI, // -1 to 1 range
-        axis: activeRotationAxis,
-      }
-    }
-  }
-
-  const handleDragStart = () => {
-    setIsDragging(true)
-  }
-
-  const handleDragEnd = () => {
-    setIsDragging(false)
-
-    // Reset active rotation axis
-    setActiveRotationAxis(null)
-
-    // In both modes, snap the handle back to center
-    x.set(0)
-    y.set(0)
-    setPathProgress(0)
-  }
-
-  const handleDrag = (event: MouseEvent | TouchEvent | PointerEvent, info: { point: { x: number; y: number } }) => {
-    if (!svgRef.current) return
-
-    // Get SVG coordinates
-    const svgRect = svgRef.current.getBoundingClientRect()
-    const localX = info.point.x - svgRect.left
-    const localY = info.point.y - svgRect.top
-
-    // Calculate closest point on path
-    const result = calculateClosestPointOnPath(localX, localY)
-
-    // Update position
-    x.set(result.x)
-    y.set(result.y)
-    setPathProgress(result.progress)
-  }
-
-  // Get axis color
-  const getAxisColor = (axis: Axis | null) => {
-    if (axis === null || !settings.useColors) return "#ffffff"
-
-    const colors = {
-      x: "#FF4136", // Red
-      y: "#2ECC40", // Green
-      z: "#0074D9", // Blue
-    }
-    return colors[axis]
-  }
-
   // Get handle color based on active axis
   const getHandleColor = () => {
     if (!settings.useColors) return "#f0f0f0"
 
     if (currentMode === "transform") {
-      return isDragging ? getAxisColor(activeAxis) : "#f0f0f0"
+      return state.isDragging ? getAxisColor(state.activeAxis, settings.useColors) : "#f0f0f0"
     } else {
-      return isDragging && activeRotationAxis ? getAxisColor(activeRotationAxis) : "#f0f0f0"
+      return state.isDragging && state.activeRotationAxis
+        ? getAxisColor(state.activeRotationAxis, settings.useColors)
+        : "#f0f0f0"
     }
   }
 
@@ -355,14 +71,10 @@ export const InSpace: React.FC<GizmoControllerProps> = ({ mode, onToggleMode, in
   }
 
   // Format rotation angle for display
-  const formatRotationAngle = (axis: Axis) => {
-    const angle = Math.round(boxRotation[axis])
+  const formatRotationAngle = (axis: "x" | "y" | "z") => {
+    const angle = Math.round(state.boxRotation[axis])
     return `${angle}°`
   }
-
-  // Calculate viewBox based on settings.size
-  const viewBoxSize = 120
-  const viewBox = `-${viewBoxSize / 2} -${viewBoxSize / 2} ${viewBoxSize} ${viewBoxSize}`
 
   return (
     <div className="flex flex-row items-center justify-center gap-8 p-4">
@@ -372,14 +84,14 @@ export const InSpace: React.FC<GizmoControllerProps> = ({ mode, onToggleMode, in
           className="w-32 h-32 bg-white/20 border border-white/30 rounded-sm"
           style={{
             transform: `
-              translateX(${boxPosition.x}px) 
-              translateY(${boxPosition.y}px) 
-              translateZ(${boxPosition.z}px)
-              rotateX(${boxRotation.x}deg) 
-              rotateY(${boxRotation.y}deg) 
-              rotateZ(${boxRotation.z}deg)
+              translateX(${state.boxPosition.x}px) 
+              translateY(${state.boxPosition.y}px) 
+              translateZ(${state.boxPosition.z}px)
+              rotateX(${state.boxRotation.x}deg) 
+              rotateY(${state.boxRotation.y}deg) 
+              rotateZ(${state.boxRotation.z}deg)
             `,
-            transition: isDragging ? "none" : "transform 0.1s ease-out",
+            transition: state.isDragging ? "none" : "transform 0.1s ease-out",
           }}
         >
           <div className="w-full h-full flex items-center justify-center text-white/70 text-xs">
@@ -431,152 +143,18 @@ export const InSpace: React.FC<GizmoControllerProps> = ({ mode, onToggleMode, in
                   transition={{ duration: 0.25 }}
                   className="absolute inset-0 flex items-center justify-center"
                 >
-                  <svg ref={svgRef} width="100%" height="100%" viewBox={viewBox} className="select-none">
-                    {/* X Axis (Red) - Extended */}
-                    <line
-                      x1="0"
-                      y1="0"
-                      x2="60"
-                      y2="0"
-                      stroke={settings.useColors ? "#FF4136" : "#ffffff"}
-                      strokeWidth={activeAxis === "x" ? 3 : 2}
-                      strokeOpacity={activeAxis === "x" ? 1 : 0.7}
-                    />
-                    <polygon
-                      points="60,0 55,-3 55,3"
-                      fill={settings.useColors ? "#FF4136" : "#ffffff"}
-                      stroke={settings.useColors ? "#FF4136" : "#ffffff"}
-                      strokeWidth="2"
-                    />
-                    <line
-                      x1="0"
-                      y1="0"
-                      x2="-60"
-                      y2="0"
-                      stroke={settings.useColors ? "#FF4136" : "#ffffff"}
-                      strokeWidth="2"
-                      strokeOpacity="0.5"
-                    />
-
-                    {/* Y Axis (Green) - Extended */}
-                    <line
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="-60"
-                      stroke={settings.useColors ? "#2ECC40" : "#ffffff"}
-                      strokeWidth={activeAxis === "y" ? 3 : 2}
-                      strokeOpacity={activeAxis === "y" ? 1 : 0.7}
-                    />
-                    <polygon
-                      points="0,-60 -3,-55 3,-55"
-                      fill={settings.useColors ? "#2ECC40" : "#ffffff"}
-                      stroke={settings.useColors ? "#2ECC40" : "#ffffff"}
-                      strokeWidth="2"
-                    />
-                    <line
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="60"
-                      stroke={settings.useColors ? "#2ECC40" : "#ffffff"}
-                      strokeWidth="2"
-                      strokeOpacity="0.5"
-                    />
-
-                    {/* Z Axis (Blue) - Extended with isometric angle */}
-                    <line
-                      x1="0"
-                      y1="0"
-                      x2="-42"
-                      y2="42"
-                      stroke={settings.useColors ? "#0074D9" : "#ffffff"}
-                      strokeWidth={activeAxis === "z" ? 3 : 2}
-                      strokeOpacity={activeAxis === "z" ? 1 : 0.7}
-                    />
-                    <polygon
-                      points="-42,42 -36,39 -39,36"
-                      fill={settings.useColors ? "#0074D9" : "#ffffff"}
-                      stroke={settings.useColors ? "#0074D9" : "#ffffff"}
-                      strokeWidth="2"
-                    />
-                    <line
-                      x1="0"
-                      y1="0"
-                      x2="42"
-                      y2="-42"
-                      stroke={settings.useColors ? "#0074D9" : "#ffffff"}
-                      strokeWidth="2"
-                      strokeOpacity="0.5"
-                    />
-
-                    {/* Axis
-                      strokeOpacity="0.5" 
-                    />
-
-                    {/* Axis labels */}
-                    {settings.showLabels && (
-                      <>
-                        <text
-                          x="62"
-                          y="4"
-                          fill={settings.useColors ? "#FF4136" : "#ffffff"}
-                          fontSize="10"
-                          fontWeight="bold"
-                          opacity="0.8"
-                          className="select-none pointer-events-none"
-                        >
-                          X
-                        </text>
-                        <text
-                          x="2"
-                          y="-62"
-                          fill={settings.useColors ? "#2ECC40" : "#ffffff"}
-                          fontSize="10"
-                          fontWeight="bold"
-                          opacity="0.8"
-                          className="select-none pointer-events-none"
-                        >
-                          Y
-                        </text>
-                        <text
-                          x="-45"
-                          y="45"
-                          fill={settings.useColors ? "#0074D9" : "#ffffff"}
-                          fontSize="10"
-                          fontWeight="bold"
-                          opacity="0.8"
-                          className="select-none pointer-events-none"
-                        >
-                          Z
-                        </text>
-                      </>
-                    )}
-
-                    {/* Center dot */}
-                    <circle cx="0" cy="0" r="3" fill="white" />
-
-                    {/* Draggable handle */}
-                    <motion.g
-                      style={{ x, y }}
-                      drag
-                      dragElastic={0}
-                      dragMomentum={false}
-                      onDragStart={handleDragStart}
-                      onDrag={handleDrag}
-                      onDragEnd={handleDragEnd}
-                      whileDrag={{ scale: 1.1 }}
-                    >
-                      <circle
-                        r={settings.handleSize}
-                        fill={isDragging ? "#ffffff" : "#f0f0f0"}
-                        stroke={isDragging ? getAxisColor(activeAxis) : "#000000"}
-                        strokeWidth="2"
-                        className="cursor-grab active:cursor-grabbing"
-                      />
-                      <circle r={settings.handleSize / 2} fill={getHandleColor()} />
-                    </motion.g>
-                  </svg>
+                  <TransformGizmo
+                    svgRef={svgRef}
+                    settings={settings}
+                    state={state}
+                    x={x}
+                    y={y}
+                    handleDragStart={handleDragStart}
+                    handleDrag={handleDrag}
+                    handleDragEnd={handleDragEnd}
+                    getAxisColor={(axis) => getAxisColor(axis, settings.useColors)}
+                    getHandleColor={getHandleColor}
+                  />
                 </motion.div>
               ) : (
                 <motion.div
@@ -587,210 +165,18 @@ export const InSpace: React.FC<GizmoControllerProps> = ({ mode, onToggleMode, in
                   transition={{ duration: 0.25 }}
                   className="absolute inset-0 flex items-center justify-center"
                 >
-                  <svg ref={svgRef} width="100%" height="100%" viewBox={viewBox} className="select-none">
-                    {/* Subtle grid for better spatial awareness */}
-                    <line x1="-60" y1="0" x2="60" y2="0" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
-                    <line x1="0" y1="-60" x2="0" y2="60" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.1" />
-
-                    {/* 3D Coordinate Axes */}
-                    <line
-                      x1="0"
-                      y1="0"
-                      x2="25"
-                      y2="0"
-                      stroke={settings.useColors ? "#FF4136" : "#ffffff"}
-                      strokeWidth="1.5"
-                      strokeOpacity="0.7"
-                    />
-                    {settings.showLabels && (
-                      <text
-                        x="27"
-                        y="4"
-                        fill={settings.useColors ? "#FF4136" : "#ffffff"}
-                        fontSize="10"
-                        opacity="0.8"
-                        className="select-none pointer-events-none"
-                      >
-                        X
-                      </text>
-                    )}
-
-                    <line
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="-25"
-                      stroke={settings.useColors ? "#2ECC40" : "#ffffff"}
-                      strokeWidth="1.5"
-                      strokeOpacity="0.7"
-                    />
-                    {settings.showLabels && (
-                      <text
-                        x="2"
-                        y="-27"
-                        fill={settings.useColors ? "#2ECC40" : "#ffffff"}
-                        fontSize="10"
-                        opacity="0.8"
-                        className="select-none pointer-events-none"
-                      >
-                        Y
-                      </text>
-                    )}
-
-                    <line
-                      x1="0"
-                      y1="0"
-                      x2="-18"
-                      y2="18"
-                      stroke={settings.useColors ? "#0074D9" : "#ffffff"}
-                      strokeWidth="1.5"
-                      strokeOpacity="0.7"
-                    />
-                    {settings.showLabels && (
-                      <text
-                        x="-22"
-                        y="22"
-                        fill={settings.useColors ? "#0074D9" : "#ffffff"}
-                        fontSize="10"
-                        opacity="0.8"
-                        className="select-none pointer-events-none"
-                      >
-                        Z
-                      </text>
-                    )}
-
-                    {/* Y-shaped selection guides */}
-                    <g opacity="0.2">
-                      {/* X axis guide (2 o'clock) */}
-                      <line
-                        x1="0"
-                        y1="0"
-                        x2="40"
-                        y2="0"
-                        stroke={settings.useColors ? "#FF4136" : "#ffffff"}
-                        strokeWidth="1"
-                        strokeDasharray="2,2"
-                      />
-
-                      {/* Y axis guide (10 o'clock) */}
-                      <line
-                        x1="0"
-                        y1="0"
-                        x2="-35"
-                        y2="-35"
-                        stroke={settings.useColors ? "#2ECC40" : "#ffffff"}
-                        strokeWidth="1"
-                        strokeDasharray="2,2"
-                      />
-
-                      {/* Z axis guide (6 o'clock) */}
-                      <line
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="40"
-                        stroke={settings.useColors ? "#0074D9" : "#ffffff"}
-                        strokeWidth="1"
-                        strokeDasharray="2,2"
-                      />
-                    </g>
-
-                    {/* Rotation Rings */}
-                    {/* X Axis Rotation (Red) */}
-                    <circle
-                      cx="0"
-                      cy="0"
-                      r="60"
-                      fill="none"
-                      stroke={settings.useColors ? "#FF4136" : "#ffffff"}
-                      strokeWidth={activeRotationAxis === "x" ? 3 : 2}
-                      strokeOpacity={activeRotationAxis === "x" ? 1 : 0.3}
-                      strokeDasharray={activeRotationAxis !== "x" && activeRotationAxis !== null ? "3,3" : ""}
-                    />
-
-                    {/* Y Axis Rotation (Green) */}
-                    <circle
-                      cx="0"
-                      cy="0"
-                      r="45"
-                      fill="none"
-                      stroke={settings.useColors ? "#2ECC40" : "#ffffff"}
-                      strokeWidth={activeRotationAxis === "y" ? 3 : 2}
-                      strokeOpacity={activeRotationAxis === "y" ? 1 : 0.3}
-                      strokeDasharray={activeRotationAxis !== "y" && activeRotationAxis !== null ? "3,3" : ""}
-                    />
-
-                    {/* Z Axis Rotation (Blue) */}
-                    <circle
-                      cx="0"
-                      cy="0"
-                      r="30"
-                      fill="none"
-                      stroke={settings.useColors ? "#0074D9" : "#ffffff"}
-                      strokeWidth={activeRotationAxis === "z" ? 3 : 2}
-                      strokeOpacity={activeRotationAxis === "z" ? 1 : 0.3}
-                      strokeDasharray={activeRotationAxis !== "z" && activeRotationAxis !== null ? "3,3" : ""}
-                    />
-
-                    {/* Rotation indicators */}
-                    {activeRotationAxis === "x" && (
-                      <line
-                        x1="0"
-                        y1="0"
-                        x2="60"
-                        y2="0"
-                        stroke={settings.useColors ? "#FF4136" : "#ffffff"}
-                        strokeWidth="2"
-                        transform={`rotate(${boxRotation.x})`}
-                      />
-                    )}
-                    {activeRotationAxis === "y" && (
-                      <line
-                        x1="0"
-                        y1="0"
-                        x2="45"
-                        y2="0"
-                        stroke={settings.useColors ? "#2ECC40" : "#ffffff"}
-                        strokeWidth="2"
-                        transform={`rotate(${boxRotation.y})`}
-                      />
-                    )}
-                    {activeRotationAxis === "z" && (
-                      <line
-                        x1="0"
-                        y1="0"
-                        x2="30"
-                        y2="0"
-                        stroke={settings.useColors ? "#0074D9" : "#ffffff"}
-                        strokeWidth="2"
-                        transform={`rotate(${boxRotation.z})`}
-                      />
-                    )}
-
-                    {/* Center dot */}
-                    <circle cx="0" cy="0" r="3" fill="white" />
-
-                    {/* Draggable handle */}
-                    <motion.g
-                      style={{ x, y }}
-                      drag
-                      dragElastic={0}
-                      dragMomentum={false}
-                      onDragStart={handleDragStart}
-                      onDrag={handleDrag}
-                      onDragEnd={handleDragEnd}
-                      whileDrag={{ scale: 1.1 }}
-                    >
-                      <circle
-                        r={settings.handleSize}
-                        fill={isDragging ? "#ffffff" : "#f0f0f0"}
-                        stroke={isDragging && activeRotationAxis ? getAxisColor(activeRotationAxis) : "#000000"}
-                        strokeWidth="2"
-                        className="cursor-grab active:cursor-grabbing"
-                      />
-                      <circle r={settings.handleSize / 2} fill={getHandleColor()} />
-                    </motion.g>
-                  </svg>
+                  <RotateGizmo
+                    svgRef={svgRef}
+                    settings={settings}
+                    state={state}
+                    x={x}
+                    y={y}
+                    handleDragStart={handleDragStart}
+                    handleDrag={handleDrag}
+                    handleDragEnd={handleDragEnd}
+                    getAxisColor={(axis) => getAxisColor(axis, settings.useColors)}
+                    getHandleColor={getHandleColor}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -800,31 +186,35 @@ export const InSpace: React.FC<GizmoControllerProps> = ({ mode, onToggleMode, in
           <div className="text-xs text-white/70 mb-1 h-6 flex items-center">
             {currentMode === "rotate" ? (
               <div className="flex items-center justify-center">
-                {activeRotationAxis ? (
+                {state.activeRotationAxis ? (
                   <span>
-                    <span style={{ color: getAxisColor(activeRotationAxis) }}>{activeRotationAxis.toUpperCase()}</span>:{" "}
-                    {formatRotationAngle(activeRotationAxis)}
+                    <span style={{ color: getAxisColor(state.activeRotationAxis, settings.useColors) }}>
+                      {state.activeRotationAxis.toUpperCase()}
+                    </span>
+                    : {formatRotationAngle(state.activeRotationAxis)}
                   </span>
                 ) : (
-                  <span>Drag to rotate</span>
+                  <span>Drag to rotate {state.isAxisLocked ? "(Axis Locked)" : ""}</span>
                 )}
               </div>
             ) : (
               <span>
-                {isDragging ? (
+                {state.isDragging ? (
                   <>
-                    <span style={{ color: getAxisColor(activeAxis) }}>{activeAxis.toUpperCase()}</span>:{" "}
-                    {formatProgress(pathProgress)}
+                    <span style={{ color: getAxisColor(state.activeAxis, settings.useColors) }}>
+                      {state.activeAxis.toUpperCase()}
+                    </span>
+                    : {formatProgress(state.pathProgress)}
                   </>
                 ) : (
-                  <span>Drag to move</span>
+                  <span>Drag to move {state.isAxisLocked ? "(Axis Locked)" : ""}</span>
                 )}
               </span>
             )}
           </div>
 
           <button
-            onClick={handleToggle}
+            onClick={toggleMode}
             className="flex items-center justify-center w-10 h-10 bg-white/20 hover:bg-white/30 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
             tabIndex={0}
             aria-label={`Switch to ${currentMode === "transform" ? "rotate" : "transform"} mode`}
