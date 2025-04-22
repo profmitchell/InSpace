@@ -11,6 +11,7 @@ export interface GizmoSettings {
   handleSize: number
   lineSize: number
   showLabels: boolean
+  showBothModes: boolean
 }
 
 export interface GizmoControllerProps {
