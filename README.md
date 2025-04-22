@@ -1,30 +1,136 @@
 # InSpace Gizmo Controller
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/profmitchells-projects/v0-in-space-gizmo-controller)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/AMQcyvRP8N2)
+<img width="1062" alt="Screenshot 2025-04-22 at 12 07 11 AM" src="https://github.com/user-attachments/assets/413403fe-8ac2-4137-9295-478b9cbbaf6c" />
+# InSpace
 
-## Overview
+> A customizable 3D gizmo control React component for transform and rotate interactions along the X, Y, and Z axes.
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+## Table of Contents
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Basic Usage](#basic-usage)
+- [Props](#props)
+- [GizmoSettings](#gizmosettings)
+- [Examples](#examples)
+- [Development](#development)
+- [Project Structure](#project-structure)
+- [Contributing](#contributing)
+- [License](#license)
 
-## Deployment
+## Prerequisites
+- Node.js v14 or higher
+- React 17+ with TypeScript support
+- (Optional) Tailwind CSS for styling
 
-Your project is live at:
+## Installation
+```bash
+npm install framer-motion
+# or
+yarn add framer-motion
+```
 
-**[https://vercel.com/profmitchells-projects/v0-in-space-gizmo-controller](https://vercel.com/profmitchells-projects/v0-in-space-gizmo-controller)**
+## Quick Start
+```tsx
+import React from 'react';
+import { InSpace } from './InSpace';
 
-## Build your app
+function App() {
+  return (
+    <div className="h-screen bg-gray-900 flex items-center justify-center">
+      <InSpace mode="transform" />
+    </div>
+  );
+}
 
-Continue building your app on:
+export default App;
+```
 
-**[https://v0.dev/chat/projects/AMQcyvRP8N2](https://v0.dev/chat/projects/AMQcyvRP8N2)**
+## Basic Usage
+- Use `mode="transform"` for translation (move) mode.
+- Use `mode="rotate"` for rotation mode.
+- Toggle between modes via the built-in UI or `onToggleMode` callback.
+- Hold **Shift** or enable `lockAxis` in settings to constrain to a single axis.
 
-## How It Works
+## Props
+| Prop              | Type                     | Default     | Description                                 |
+|-------------------|--------------------------|-------------|---------------------------------------------|
+| `mode`            | `"transform" \| "rotate"`| **required**| Initial interaction mode.                   |
+| `onToggleMode`    | `() => void` (optional)  | `undefined` | Callback fired when mode toggles.           |
+| `initialSettings` | `Partial<GizmoSettings>` | `{}`        | Override default gizmo settings (below).    |
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+## GizmoSettings
+Configure gizmo appearance & behavior via `initialSettings` or the settings panel:
+
+| Setting               | Type    | Default  | Description                                     |
+|-----------------------|---------|----------|-------------------------------------------------|
+| `size`                | number  | `200`    | Diameter of the gizmo SVG container (px).       |
+| `allowDragBeyondBounds` | boolean | `false` | Allow handle to drag outside the circle bounds. |
+| `lockAxis`            | boolean | `true`   | Enable axis locking when dragging or rotating.  |
+| `useColors`           | boolean | `true`   | Color axes (X: red, Y: green, Z: blue).         |
+| `handleSize`          | number  | `10`     | Radius of draggable handles (px).               |
+| `lineSize`            | number  | `2`      | Stroke width of axis lines (px).                |
+| `showLabels`          | boolean | `true`   | Display axis labels and values.                 |
+
+## Examples
+### Custom Initial Settings
+```tsx
+<InSpace
+  mode="rotate"
+  initialSettings={{
+    size: 300,
+    lockAxis: false,
+    useColors: false,
+    showLabels: false,
+  }}
+  onToggleMode={() => console.log('Mode switched')}
+/>
+```
+
+### Embedding in a Panel
+```tsx
+import { InSpace } from './InSpace';
+
+function ControlPanel() {
+  return (
+    <div className="p-4 bg-white rounded shadow">
+      <h2 className="text-lg font-bold">3D Control Gizmo</h2>
+      <InSpace mode="transform" />
+    </div>
+  );
+}
+```
+
+## Development
+```bash
+npm install
+npm run dev
+# or
+yarn install
+yarn dev
+```
+- Starts a local dev server with hot-reload.
+
+## Project Structure
+```
+inspace/
+├─ src/
+│  ├─ InSpace.tsx      # Main gizmo component
+│  ├─ Settings.tsx     # Settings panel UI
+│  └─ styles/          # Tailwind or custom CSS
+├─ package.json
+├─ tsconfig.json
+├─ tailwind.config.js
+└─ README.md           # This file
+```
+
+## Contributing
+1. Fork the repo.
+2. Create feature branch (`git checkout -b feature/xyz`).
+3. Commit with clear messages.
+4. Open a pull request describing your changes.
+5. Ensure tests pass and code is linted.
+
+## License
+MIT 
