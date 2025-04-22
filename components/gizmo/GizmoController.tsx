@@ -128,7 +128,8 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
           // Clamp y between -60 and 60 (or allow beyond if setting is enabled)
           const maxDist = settings.allowDragBeyondBounds ? 1000 : 60
           const clampedY = Math.max(-maxDist, Math.min(maxDist, relY))
-          const normalizedProgress = -clampedY / 60 // Invert Y for natural up/down
+          // REVERSED: Now negative Y means down, positive Y means up
+          const normalizedProgress = clampedY / 60 // Removed the negative sign to reverse direction
 
           // Update box position
           setBoxPosition((prev) => ({ ...prev, y: normalizedProgress * 50 }))
@@ -197,8 +198,8 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
         // Clamp y between -60 and 60 (or allow beyond if setting is enabled)
         const maxDist = settings.allowDragBeyondBounds ? 1000 : 60
         const clampedY = Math.max(-maxDist, Math.min(maxDist, relY))
-        // Calculate progress from -1 to 1 (centered at 0)
-        const normalizedProgress = -clampedY / 60 // Invert Y for natural up/down
+        // REVERSED: Now negative Y means down, positive Y means up
+        const normalizedProgress = clampedY / 60 // Removed the negative sign to reverse direction
 
         setActiveAxis("y")
 
