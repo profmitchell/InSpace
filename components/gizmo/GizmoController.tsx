@@ -143,8 +143,8 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
           // Clamp y between -60 and 60 (or allow beyond if setting is enabled)
           const maxDist = settings.allowDragBeyondBounds ? 1000 : 60
           const clampedY = Math.max(-maxDist, Math.min(maxDist, relY))
-          // REVERSED: Now negative Y means down, positive Y means up
-          const normalizedProgress = -clampedY / 60 // Added negative sign to reverse direction
+          // Y axis: Positive Y means up, negative Y means down
+          const normalizedProgress = -clampedY / 60 // Negative sign makes positive Y go up
 
           // Update box position
           setBoxPosition((prev) => ({ ...prev, y: normalizedProgress * 50 }))
@@ -165,8 +165,8 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
           const maxDist = settings.allowDragBeyondBounds ? 1000 : 60
           const projectionLength = (relX * 0.707 - relY * 0.707) * 0.707 // Corrected for 45-degree Z axis
           const clampedProj = Math.max(-maxDist, Math.min(maxDist, projectionLength))
-          // REVERSED: Now negative Z means away, positive Z means towards
-          const normalizedProgress = -clampedProj / 60 // Added negative sign to reverse direction
+          // Z axis direction: positive Z means towards user (closer), negative Z means away (further)
+          const normalizedProgress = -clampedProj / 60 // Added negative sign to make positive Z go towards user
 
           // Update box position
           setBoxPosition((prev) => ({ ...prev, z: normalizedProgress * 50 }))
@@ -214,8 +214,8 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
         // Clamp y between -60 and 60 (or allow beyond if setting is enabled)
         const maxDist = settings.allowDragBeyondBounds ? 1000 : 60
         const clampedY = Math.max(-maxDist, Math.min(maxDist, relY))
-        // REVERSED: Now negative Y means down, positive Y means up
-        const normalizedProgress = -clampedY / 60 // Added negative sign to reverse direction
+        // Y axis: Positive Y means up, negative Y means down
+        const normalizedProgress = -clampedY / 60 // Negative sign makes positive Y go up
 
         setActiveAxis("y")
 
@@ -240,8 +240,8 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
         const projectionLength = (relX * 0.707 - relY * 0.707) * 0.707 // Corrected for 45-degree Z axis
         // Clamp projection between -60 and 60 (or allow beyond if setting is enabled)
         const clampedProj = Math.max(-maxDist, Math.min(maxDist, projectionLength))
-        // REVERSED: Now negative Z means away, positive Z means towards
-        const normalizedProgress = -clampedProj / 60 // Added negative sign to reverse direction
+        // Z axis direction: positive Z means towards user (closer), negative Z means away (further)
+        const normalizedProgress = -clampedProj / 60 // Added negative sign to make positive Z go towards user
 
         setActiveAxis("z")
 
@@ -613,8 +613,8 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
                         x2="42"
                         y2="-42"
                         stroke={settings.useColors ? "#0074D9" : "#ffffff"}
-                        strokeWidth={activeAxis === "z" ? settings.lineSize + 3 : settings.lineSize + 1}
-                        strokeOpacity={activeAxis === "z" ? 1 : 0.9}
+                        strokeWidth={activeAxis === "z" ? settings.lineSize + 1 : settings.lineSize}
+                        strokeOpacity={activeAxis === "z" ? 1 : 0.7}
                       />
                       <polygon
                         points="42,-42 39,-36 36,-39"
@@ -628,8 +628,8 @@ export const GizmoController: React.FC<GizmoControllerProps> = ({
                         x2="-42"
                         y2="42"
                         stroke={settings.useColors ? "#0074D9" : "#ffffff"}
-                        strokeWidth={activeAxis === "z" ? settings.lineSize + 3 : settings.lineSize + 1}
-                        strokeOpacity={activeAxis === "z" ? 0.8 : 0.7}
+                        strokeWidth={activeAxis === "z" ? settings.lineSize + 1 : settings.lineSize}
+                        strokeOpacity="0.5"
                       />
 
                       {/* Add a subtle Z axis helper area - invisible but helps with hit detection */}

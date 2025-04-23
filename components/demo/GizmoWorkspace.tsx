@@ -154,14 +154,20 @@ export const GizmoWorkspace: React.FC = () => {
 
         {/* Center panel - Canvas */}
         <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-black to-gray-900">
-          <div className="w-96 h-96 flex items-center justify-center">
+          <div className="w-full h-full max-w-3xl max-h-3xl flex items-center justify-center p-8">
             {use3DMeshes ? (
-              <div className="w-full h-full">
-                <ThreeDObject position={position} rotation={rotation} type={activeDemo} size={64} viewMode={viewMode} />
+              <div className="w-full h-full bg-gradient-to-b from-gray-900/50 to-black/50 rounded-xl overflow-hidden">
+                <ThreeDObject
+                  position={position}
+                  rotation={rotation}
+                  type={activeDemo}
+                  size={128}
+                  viewMode={viewMode}
+                />
               </div>
             ) : (
               <div
-                className={`${viewMode === "3d" ? "perspective-500" : ""} w-full h-full flex items-center justify-center`}
+                className={`${viewMode === "3d" ? "perspective-500" : ""} w-full h-full flex items-center justify-center bg-gradient-to-b from-gray-900/50 to-black/50 rounded-xl`}
               >
                 <DemoObject
                   position={position}
